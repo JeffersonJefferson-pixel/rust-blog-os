@@ -5,9 +5,9 @@
 #![reexport_test_harness_main = "test_main"]
 
 use core::panic::PanicInfo;
-use blog_os::{memory::{active_level_4_table, translate_addr}, println};
+use blog_os::{memory::{self}, println};
 use bootloader::{BootInfo, entry_point};
-use x86_64::{structures::paging::PageTable, VirtAddr};
+use x86_64::{structures::paging::Translate, VirtAddr};
 
 // this function is the entry point
 entry_point!(kernel_main);
@@ -17,6 +17,9 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     blog_os::init();
 
     let phys_mem_offset = VirtAddr::new(boot_info.physical_memory_offset);
+
+    // initialize mapper
+    let mapper = unsafe { memory::init(phys_mem_offset) };
     
     let addresses = [
         // the identity-mapped vga buffer page
@@ -31,9 +34,7 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
 
     for &address in &addresses {
         let virt = VirtAddr::new(address);
-        let phys = unsafe {
-            translate_addr(virt, phys_mem_offset)
-        };
+        let phys = mapper.translate_addr(virt);
         println!("{:?} -> {:?}", virt, phys);
     }
 
